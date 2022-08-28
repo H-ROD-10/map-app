@@ -1,8 +1,10 @@
 import { useReducer, useContext, useEffect } from 'react';
-import { Map, Marker, Popup } from "mapbox-gl";
+import { AnySourceData, LngLatBounds, Map, Marker, Popup } from "mapbox-gl";
 import { MapContext } from "./MapContext";
 import { MapReducer } from './MapReducer';
 import { PlacesContext } from '../places/PlacesContext';
+import { directionsApi } from '../../apis';
+import { Directions } from '../../interfaces/directions';
 
 export interface MapState {
     mapIsReady: boolean;
@@ -74,13 +76,91 @@ export const MapProvider = ({children}: Props )=> {
         })
     }
 
+    const getRouteBetweenPoint = async (start: [number, number], end: [number, number]) =>{
+
+        //Respuesta de la Api
+        const resp = await directionsApi.get<Directions>(`/${start.join(",")};${end.join(",")}`);
+
+        //Se extrae la distacia, diracion y las coordenadas
+        const {distance, duration, geometry} = resp.data.routes[0];
+
+        //se extrae la coordenada
+        const {coordinates: cords} = geometry
+
+        // se traduce en km la distacia y los minutos
+        let kms = distance / 1000;
+            kms = Math.round(kms * 100);
+            kms/=100;
+
+        const minutes = Math.floor(duration / 60);
+
+        // Para mostrar los 2 puntos de salida y llegada
+       const bounds = new LngLatBounds(
+        start, start
+       );
+
+       for (const cord of cords) {
+            const newCords: [number, number] = [cord[0], cord[1]];
+
+            bounds.extend(newCords)
+       }
+
+       state.map?.fitBounds(bounds, {
+        padding: 200
+       })
+
+       //polyline
+       const sourceData: AnySourceData = {
+            type: 'geojson',
+            data:{
+                type:'FeatureCollection',
+                features:[
+                    {
+                        type: 'Feature',
+                        properties: {},
+                        geometry:{
+                            type:'LineString',
+                            coordinates: cords
+                        }
+                    }
+                ]
+            }
+       }
+
+       //Todo remover polyline si existen
+       if(state.map?.getLayer('RouteString')){
+        state.map.removeLayer('RouteString')
+        state.map.removeSource('RouteString')
+       }
+
+
+       //Creando la polyline
+       state.map?.addSource('RouteString', sourceData)
+
+       //Agregar estilos a polyline
+       state.map?.addLayer({
+        id:'RouteString',
+        type:'line',
+        source: 'RouteString',
+        layout:{
+            "line-cap": 'round',
+            "line-join":'round'
+        }, 
+        paint:{
+            "line-color": 'black',
+            "line-width": 3
+        }
+       })
+    }
+
   return (
     <MapContext.Provider value={{
             ...state,
 
 
             //Methods
-            setMap
+            setMap,
+            getRouteBetweenPoint
         }}
     >
         {children}
