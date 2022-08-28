@@ -1,6 +1,8 @@
+
+
 import { useReducer, useContext, useEffect } from 'react';
-//@ts-ignore
-import { AnySourceData, LngLatBounds, Map, Marker, Popup } from "!mapbox-gl";
+
+import { AnySourceData, LngLatBounds, Map, Marker, Popup } from "mapbox-gl";
 import { MapContext } from "./MapContext";
 import { MapReducer } from './MapReducer';
 import { PlacesContext } from '../places/PlacesContext';
